@@ -18,8 +18,8 @@ The dashboard shows:
 - An **"Up next"** card suggesting the next step (required steps first)
 - The **checklist** itself, with priorities mapped to _Required / Recommended / Optional_
 - A **"Behind the scenes"** panel showing all four XAA steps live, with timings, decoded
-  ID-JAG and access-token claims, and replay buttons (step-by-step SDK calls, or the
-  one-shot `CrossAppAccessProvider` auto mode)
+  ID-JAG and access-token claims, and two run buttons (run manually step-by-step, or
+  run automatically via `CrossAppAccessProvider`)
 
 All checklist data is fetched at request time from xaa.dev's protected MCP server
 (`todo0://todos`) with **read-only scopes** (`todos.read mcp.access`). Nothing is seeded or mocked.
@@ -46,7 +46,7 @@ exchange → retry, fully SDK-orchestrated.
 ### 1. Register a requesting app on xaa.dev
 
 1. Go to the [requesting app registration page](https://xaa.dev/developer/register).
-2. Enter your email address. It scopes which registered apps are visible to you; xaa.dev creates no account and sends no email.
+2. Enter your email address. It filters which registered apps are visible to you.
 3. Select **+ Register New App** and fill in the form:
    - **Application Name**: any label, for example `Onboarding App - Local Dev`
    - **Redirect URIs**: `http://localhost:3001/callback` (the match is exact, including scheme, host, port, and path)
@@ -84,7 +84,7 @@ npm start        # http://localhost:3001
 
 ### 4. Try it
 
-1. Open `http://localhost:3001` and select **Sign in with company SSO**. IdenX accepts any
+1. Open `http://localhost:3001` and select **Sign in with company SSO**. xaa.dev's IdP, IdenX, accepts any
    email address, so no real credentials are involved.
 2. After sign-in, the flow runs automatically: the four steps light up in order in the
    "Behind the scenes" panel with real timings, and the checklist renders as soon as step 4
@@ -93,8 +93,8 @@ npm start        # http://localhost:3001
    - The ID-JAG's `aud` is the authorization server and its `resource` is the MCP server URL
    - The access token's `scope` claim contains `todos.read mcp.access`
    - The access token's `aud` matches the ID-JAG's `resource`, byte for byte
-4. Try the **Replay auto (SDK provider)** button and watch `CrossAppAccessProvider` produce
-   the same result through discovery alone, with no hardcoded authorization server URL.
+4. Try the **Run auto (SDK discovers the auth server)** button and watch `CrossAppAccessProvider`
+   produce the same result through discovery alone, with no hardcoded authorization server URL.
 
 ## Caveats
 
