@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Onboarding</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0e1016; color: #e6e9f0; margin: 0; min-height: 100vh;
+  }
+  a { color: #8b9cf7; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px; border-bottom: 1px solid #23273a;
+    background: linear-gradient(180deg, #12151f, #0e1016);
+  }
+  header h1 { font-size: 1.2rem; margin: 0; letter-spacing: 0.2px; }
+  header h1 .sun { margin-right: 6px; }
+  header .sub { color: #5d6478; font-size: 0.78rem; margin-top: 2px; }
+  .userbox { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; color: #8a91a5; }
+  .btn {
+    display: inline-block; padding: 11px 24px; background: #4f6af5; color: #fff;
+    border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 600;
+    cursor: pointer; text-decoration: none; transition: background .2s;
+  }
+  .btn:hover { background: #3e56d6; }
+  .btn.secondary { background: #262b40; color: #c7cde0; }
+  .btn.secondary:hover { background: #313752; }
+  .btn.small { padding: 7px 14px; font-size: 0.78rem; border-radius: 8px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Login view ── */
+  #loginView { display: none; align-items: center; justify-content: center; min-height: calc(100vh - 70px); }
+  .login-card {
+    background: #151827; border: 1px solid #23273a; border-radius: 20px;
+    padding: 52px 58px; text-align: center; max-width: 480px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  .login-card .big { font-size: 2.4rem; }
+  .login-card h2 { margin: 10px 0 8px; font-size: 1.4rem; }
+  .login-card p { color: #8a91a5; font-size: 0.9rem; line-height: 1.7; }
+  .login-card .fineprint { font-size: 0.72rem; color: #5d6478; margin-top: 18px; }
+  .warn { color: #f0b45c; font-size: 0.85rem; }
+
+  /* ── Dashboard ── */
+  #dashView { display: none; }
+  .layout { display: grid; grid-template-columns: 1fr 380px; gap: 22px; padding: 24px 28px; max-width: 1280px; margin: 0 auto; }
+  @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+  .panel { background: #151827; border: 1px solid #23273a; border-radius: 16px; padding: 22px; }
+  .panel h2 { font-size: 1rem; color: #aab6ff; margin: 0 0 14px; }
+  .panel h3 { font-size: 0.82rem; color: #8b9cf7; margin: 14px 0 6px; }
+
+  /* Hero */
+  .hero { display: flex; align-items: center; gap: 28px; margin-bottom: 22px; flex-wrap: wrap; }
+  .hero .words h2 { margin: 0 0 6px; font-size: 1.6rem; color: #f2f4fa; }
+  .hero .words p { margin: 0; color: #8a91a5; font-size: 0.92rem; line-height: 1.6; max-width: 480px; }
+  .ring-wrap { position: relative; width: 130px; height: 130px; flex: none; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { stroke: #23273a; }
+  .ring-fg { stroke: url(#grad); stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+  .ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring-label .pct { font-size: 1.5rem; font-weight: 700; }
+  .ring-label .cap { font-size: 0.62rem; color: #5d6478; text-transform: uppercase; letter-spacing: 1px; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat { background: #10131d; border: 1px solid #23273a; border-radius: 12px; padding: 14px; }
+  .stat .v { font-size: 1.4rem; font-weight: 700; }
+  .stat .l { font-size: 0.7rem; color: #5d6478; margin-top: 2px; }
+
+  /* Up next */
+  .upnext {
+    background: linear-gradient(135deg, #1b2140, #151827);
+    border: 1px solid #33407a; border-radius: 14px; padding: 18px 20px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .upnext .tag { font-size: 0.65rem; font-weight: 700; letter-spacing: 1.2px; color: #8b9cf7; text-transform: uppercase; }
+  .upnext .task { font-size: 1.05rem; font-weight: 600; margin-top: 3px; }
+  .upnext .emoji { font-size: 1.6rem; }
+
+  /* Checklist */
+  .todo { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #1d2133; font-size: 0.92rem; }
+  .todo:last-child { border-bottom: none; }
+  .todo .check { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid #3a4157; flex: none;
+    display: flex; align-items: center; justify-content: center; font-size: 0.72rem; }
+  .todo.done .check { background: #143d2b; border-color: #2ea36f; color: #57d99a; }
+  .todo.done .t { text-decoration: line-through; color: #5d6478; }
+  .todo .t { flex: 1; }
+  .chip { font-size: 0.66rem; padding: 3px 9px; border-radius: 999px; font-weight: 700; letter-spacing: 0.3px; }
+  .chip.required    { background: #3d1420; color: #ff9db0; }
+  .chip.recommended { background: #3a2a10; color: #f5c37a; }
+  .chip.optional    { background: #12303f; color: #7fd4f2; }
+  .empty { color: #5d6478; font-size: 0.85rem; text-align: center; padding: 26px; }
+
+  ul.glance { margin: 0; padding-left: 18px; color: #8a91a5; font-size: 0.86rem; line-height: 1.95; }
+
+  /* Admin note */
+  .adminnote {
+    background: #10131d; border: 1px dashed #33407a; border-radius: 12px;
+    padding: 14px 16px; font-size: 0.8rem; color: #8a91a5; line-height: 1.65; margin-top: 16px;
+  }
+  .adminnote b { color: #c7cde0; }
+
+  /* Behind the scenes: flow steps */
+  .step { border: 1px solid #23273a; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: #10131d; }
+  .step .head { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .step .dot { width: 11px; height: 11px; border-radius: 50%; background: #3a4157; flex: none; }
+  .step.running .dot { background: #4f6af5; animation: pulse 1s infinite; }
+  .step.done .dot { background: #2ea36f; }
+  .step.error .dot { background: #e05661; }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+  .step .name { font-weight: 600; font-size: 0.82rem; flex: 1; }
+  .step .ms { font-size: 0.7rem; color: #5d6478; font-variant-numeric: tabular-nums; }
+  .step .rfc { font-size: 0.66rem; color: #5d6478; display: block; font-weight: 400; margin-top: 2px; }
+  .step .detail { display: none; margin-top: 10px; }
+  .step.open .detail { display: block; }
+  .step .caret { color: #5d6478; font-size: 0.7rem; flex: none; transition: transform .2s; }
+  .step.open .caret { transform: rotate(180deg); }
+  .step .head:hover .caret { color: #8b9cf7; }
+  pre.box {
+    background: #0b0d14; border: 1px solid #2a2f45; border-radius: 8px; padding: 10px;
+    font-family: "SF Mono", Monaco, Consolas, monospace; font-size: 0.67rem; line-height: 1.5;
+    color: #dbe0ee; overflow-x: auto; max-height: 230px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-all; margin: 6px 0;
+  }
+  pre.box.token { color: #8fe6b0; }
+  pre.box.err { color: #ff9db0; }
+  .flow-buttons { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+
+  /* Loading skeletons */
+  .skel {
+    background: linear-gradient(90deg, #191d2e 25%, #232841 50%, #191d2e 75%);
+    background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 6px;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1><span class="sun">🌅</span>Employee Onboarding</h1>
+    <div class="sub">Secured by Cross-App Access (SEP-990) · xaa.dev</div>
+  </div>
+  <div class="userbox" id="userbox"></div>
+</header>
+
+<div id="loginView">
+  <div class="login-card">
+    <div class="big">👋</div>
+    <h2>Welcome to your first day</h2>
+    <p>Sign in once with your company identity and your onboarding checklist will be ready,
+       pulled securely from the company task system. No app-by-app approvals, no consent pop-ups:
+       IT already connected everything for you.</p>
+    <p id="cfgWarn" class="warn"></p>
+    <a class="btn" href="/login">Sign in with company SSO →</a>
+    <div class="fineprint">Enterprise identity by IdenX · idp.xaa.dev</div>
+  </div>
+</div>
+
+<div id="dashView">
+  <div class="layout">
+
+    <!-- Main column: onboarding -->
+    <div>
+      <div class="panel" style="margin-bottom: 22px;">
+        <div class="hero">
+          <div class="ring-wrap">
+            <svg width="130" height="130">
+              <defs>
+                <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#4f6af5"/><stop offset="100%" stop-color="#2ea36f"/>
+                </linearGradient>
+              </defs>
+              <circle class="ring-bg" cx="65" cy="65" r="56" fill="none" stroke-width="11"/>
+              <circle class="ring-fg" id="ringFg" cx="65" cy="65" r="56" fill="none" stroke-width="11"
+                stroke-dasharray="351.9" stroke-dashoffset="351.9"/>
+            </svg>
+            <div class="ring-label"><div class="pct" id="ringPct">–</div><div class="cap">set up</div></div>
+          </div>
+          <div class="words">
+            <h2>Welcome 👋 it's Day 1</h2>
+            <p>Here's your onboarding checklist, fetched live from the company task system
+               using your enterprise identity. Work through it at your own pace.</p>
+          </div>
+        </div>
+
+        <div class="stat-row" id="stats"><div class="empty">Loading your checklist…</div></div>
+        <div id="upnextWrap"></div>
+        <div id="glanceWrap" style="display:none">
+          <h3>Your day at a glance</h3>
+          <ul class="glance" id="glance"></ul>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Onboarding checklist <span id="taskSrc" style="font-weight:400; font-size:0.7rem; color:#5d6478;"></span></h2>
+        <div id="todos"><div class="empty">Your checklist will appear here after sign-in.</div></div>
+      </div>
+    </div>
+
+    <!-- Side column: behind the scenes -->
+    <div>
+      <div class="panel">
+        <h2>🔐 Behind the scenes</h2>
+        <p style="font-size:0.8rem; color:#8a91a5; line-height:1.6; margin: 0 0 14px;">
+          How this app got access to your checklist, every step, live:</p>
+        <div class="flow-buttons">
+          <button class="btn small" id="runStep">▶ Run manually (see every token)</button>
+          <button class="btn small secondary" id="runAuto">⚡ Run auto (SDK discovers the auth server)</button>
+        </div>
+        <div id="steps"></div>
+        <div class="adminnote">
+          <b>No consent screens.</b> Your apps were connected by your IT admin, so
+          everything worked the moment you signed in.
+        </div>
+        <h3>Environment</h3>
+        <pre class="box" id="envBox"></pre>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const STEPS = [
+  { id: 'login', name: '1 · Company SSO', rfc: 'OpenID Connect + PKCE @ idp.xaa.dev' },
+  { id: 'jag',   name: '2 · IdP issues delegation grant (ID-JAG)', rfc: 'RFC 8693 @ idp.xaa.dev/token' },
+  { id: 'token', name: '3 · Task system grants access', rfc: 'RFC 7523 @ auth.resource.xaa.dev/token' },
+  { id: 'mcp',   name: '4 · Checklist fetched (MCP)', rfc: 'StreamableHTTP @ mcp.xaa.dev/mcp' },
+];
+const stepEls = {};
+
+function renderSteps() {
+  const wrap = document.getElementById('steps');
+  wrap.innerHTML = '';
+  for (const s of STEPS) {
+    const el = document.createElement('div');
+    el.className = 'step';
+    el.innerHTML = `
+      <div class="head">
+        <div class="dot"></div>
+        <div class="name">${s.name}<span class="rfc">${s.rfc}</span></div>
+        <div class="ms"></div>
+        <div class="caret">▾</div>
+      </div>
+      <div class="detail"></div>`;
+    el.querySelector('.head').addEventListener('click', () => el.classList.toggle('open'));
+    wrap.appendChild(el);
+    stepEls[s.id] = el;
+  }
+}
+
+function setStep(id, status, ms, detailHtml) {
+  const el = stepEls[id];
+  if (!el) return;
+  el.classList.remove('running', 'done', 'error');
+  if (status) el.classList.add(status === 'start' ? 'running' : status);
+  if (ms != null) el.querySelector('.ms').textContent = ms + ' ms';
+  if (detailHtml != null) el.querySelector('.detail').innerHTML = detailHtml;
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function jsonBox(obj, cls) {
+  return `<pre class="box ${cls || ''}">${esc(typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2))}</pre>`;
+}
+function tokenDetail(data) {
+  let html = '';
+  if (data.token) {
+    if (data.token.payload) html += '<h3>Decoded payload</h3>' + jsonBox(data.token.payload);
+    html += '<h3>Raw token</h3>' + jsonBox(data.token.raw, 'token');
+  }
+  const extra = {};
+  for (const k of ['expiresIn', 'scope', 'tokenType', 'note']) if (data[k] != null) extra[k] = data[k];
+  if (Object.keys(extra).length) html += jsonBox(extra);
+  return html;
+}
+
+// ── Onboarding rendering ────────────────────────────────────────────────────
+
+const PRIORITY_LABEL = { high: 'required', medium: 'recommended', low: 'optional' };
+
+function chipFor(priority) {
+  const pr = (priority || '').toLowerCase();
+  const label = PRIORITY_LABEL[pr];
+  return label ? `<span class="chip ${label}">${label}</span>` : '';
+}
+
+function renderTodos(result) {
+  const wrap = document.getElementById('todos');
+  document.getElementById('taskSrc').textContent = result.resourceUri ? '· live from ' + result.resourceUri : '';
+  if (!result.todos || result.todos.length === 0) {
+    wrap.innerHTML = '<div class="empty">No onboarding steps assigned yet.</div>' +
+      (result.rawText ? jsonBox(result.rawText) : '');
+    return;
+  }
+  wrap.innerHTML = result.todos.map(t => `
+    <div class="todo ${t.completed ? 'done' : ''}">
+      <div class="check">${t.completed ? '✓' : ''}</div>
+      <div class="t">${esc(t.title)}</div>${chipFor(t.priority)}
+    </div>`).join('');
+}
+
+function renderProgress(result) {
+  const todos = result.todos || [];
+  const total = todos.length;
+  const done = todos.filter(t => t.completed).length;
+  const rate = total ? Math.round(done / total * 100) : 0;
+  const required = todos.filter(t => !t.completed && /high/i.test(t.priority || '')).length;
+
+  // ring: circumference = 2πr ≈ 351.9
+  document.getElementById('ringFg').style.strokeDashoffset = String(351.9 * (1 - rate / 100));
+  document.getElementById('ringPct').textContent = rate + '%';
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="v">${total}</div><div class="l">Onboarding steps</div></div>
+    <div class="stat"><div class="v">${done}</div><div class="l">Completed</div></div>
+    <div class="stat"><div class="v">${total - done}</div><div class="l">Remaining</div></div>
+    <div class="stat"><div class="v">${required}</div><div class="l">Required steps open</div></div>`;
+
+  const next = todos.find(t => !t.completed && /high/i.test(t.priority || '')) || todos.find(t => !t.completed);
+  document.getElementById('upnextWrap').innerHTML = next ? `
+    <div class="upnext">
+      <div class="emoji">🎯</div>
+      <div><div class="tag">Up next</div><div class="task">${esc(next.title)}</div></div>
+    </div>` : (total ? `
+    <div class="upnext">
+      <div class="emoji">🎉</div>
+      <div><div class="tag">All done</div><div class="task">Onboarding complete. Great first day!</div></div>
+    </div>` : '');
+
+  const glance = [];
+  if (total) glance.push(`You're ${rate}% through your Day-1 setup: ${done} of ${total} steps done.`);
+  if (required > 0) glance.push(`${required} required step${required > 1 ? 's' : ''} still open, those come first.`);
+  if (next) glance.push(`Suggested next step: “${next.title}”.`);
+  glance.push('This checklist was fetched live from the company task system using your enterprise identity. You never approved a single connection.');
+  document.getElementById('glanceWrap').style.display = '';
+  document.getElementById('glance').innerHTML = glance.map(g => `<li>${esc(g)}</li>`).join('');
+}
+
+// ── Flow runner (SSE) ───────────────────────────────────────────────────────
+
+function showLoading() {
+  document.getElementById('ringPct').textContent = '…';
+  document.getElementById('stats').innerHTML = Array(4).fill(
+    '<div class="stat"><div class="skel" style="height:22px;width:55%"></div>' +
+    '<div class="skel" style="height:10px;width:80%;margin-top:9px"></div></div>').join('');
+  document.getElementById('upnextWrap').innerHTML =
+    '<div class="upnext"><div class="skel" style="height:42px;width:100%"></div></div>';
+  document.getElementById('todos').innerHTML = Array(5).fill(
+    '<div class="todo"><div class="skel" style="width:20px;height:20px;border-radius:50%"></div>' +
+    '<div class="skel" style="height:14px;flex:1"></div>' +
+    '<div class="skel" style="height:14px;width:74px"></div></div>').join('');
+}
+
+let running = false;
+function runFlow(mode) {
+  if (running) return;
+  running = true;
+  document.getElementById('runStep').disabled = true;
+  document.getElementById('runAuto').disabled = true;
+  showLoading();
+  for (const id of ['jag', 'token', 'mcp']) setStep(id, null, null, '');
+
+  const es = new EventSource('/api/flow?mode=' + mode);
+  es.onmessage = e => {
+    const ev = JSON.parse(e.data);
+    if (ev.type === 'step') {
+      if (ev.status === 'start') {
+        setStep(ev.step, 'start', null, ev.data ? jsonBox(ev.data) : null);
+      } else if (ev.status === 'done') {
+        const html = ev.step === 'mcp'
+          ? '<h3>Resources</h3>' + jsonBox(ev.data.resources) + (ev.data.rawText ? '<h3>Resource content</h3>' + jsonBox(ev.data.rawText) : '')
+          : tokenDetail(ev.data || {});
+        setStep(ev.step, 'done', ev.ms, html);
+        if (ev.step === 'mcp') { renderTodos(ev.data); renderProgress(ev.data); }
+      } else {
+        setStep(ev.step, 'error', ev.ms, jsonBox(ev.error, 'err'));
+        stepEls[ev.step].classList.add('open');
+      }
+    } else if (ev.type === 'flow') {
+      if (ev.status === 'error' && ev.error) console.error('flow error:', ev.error);
+      es.close();
+      running = false;
+      document.getElementById('runStep').disabled = false;
+      document.getElementById('runAuto').disabled = false;
+    }
+  };
+  es.onerror = () => {
+    es.close();
+    running = false;
+    document.getElementById('runStep').disabled = false;
+    document.getElementById('runAuto').disabled = false;
+  };
+}
+
+// ── Init ────────────────────────────────────────────────────────────────────
+
+async function init() {
+  renderSteps();
+  const s = await (await fetch('/api/session')).json();
+  document.getElementById('envBox').textContent =
+    `IdP:         ${s.config.idpBaseUrl}\nAuth server: ${s.config.authServerUrl}\nTask system: ${s.config.mcpServerUrl}\nScope:       ${s.config.scope}\nRedirect:    ${s.config.redirectUri}`;
+
+  if (!s.loggedIn) {
+    document.getElementById('loginView').style.display = 'flex';
+    if (s.config.missing && s.config.missing.length) {
+      document.getElementById('cfgWarn').textContent = '⚠ Missing .env values: ' + s.config.missing.join(', ');
+    }
+    return;
+  }
+
+  document.getElementById('dashView').style.display = 'block';
+  document.getElementById('userbox').innerHTML =
+    `<span>✅ Signed in</span><a class="btn small secondary" href="/logout">Sign out</a>`;
+
+  setStep('login', 'done', null,
+    '<h3>ID token claims</h3>' + jsonBox(s.idToken.payload) + '<h3>Raw id_token</h3>' + jsonBox(s.idToken.raw, 'token'));
+
+  document.getElementById('runStep').addEventListener('click', () => runFlow('step'));
+  document.getElementById('runAuto').addEventListener('click', () => runFlow('auto'));
+
+  runFlow('step'); // fetch the checklist automatically after sign-in
+}
+init();
+</script>
+</body>
+</html>
