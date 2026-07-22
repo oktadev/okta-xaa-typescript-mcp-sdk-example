@@ -128,6 +128,34 @@
   pre.box.err { color: #ff9db0; }
   .flow-buttons { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 
+  /* Access token + claims cards */
+  .token-info-card {
+    background: #0b0d16; border: 1px solid #2a2f45; border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 10px;
+  }
+  .token-info-label {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 1.5px;
+    color: #8b9cf7; text-transform: uppercase; margin-bottom: 8px; display: block;
+  }
+  .token-card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; margin-bottom: 8px;
+  }
+  .token-card-head:hover .token-caret { color: #8b9cf7; }
+  .token-caret { color: #5d6478; font-size: 0.7rem; transition: transform .2s; flex: none; }
+  .token-info-card.open .token-caret { transform: rotate(180deg); }
+  .token-full-wrap { display: none; margin-top: 8px; }
+  .token-info-card.open .token-full-wrap { display: block; }
+  .token-info-card.open .token-info-value { display: none; }
+  .token-info-value {
+    font-family: "SF Mono", Monaco, Consolas, monospace; font-size: 0.68rem;
+    color: #8fe6b0; word-break: break-all; line-height: 1.5;
+  }
+  .claims-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+  .claims-table td { padding: 3px 0; vertical-align: top; }
+  .claims-table td:first-child { color: #5d6478; width: 36px; white-space: nowrap; padding-right: 12px; }
+  .claims-table td:last-child { color: #c7cde0; word-break: break-all; }
+
   /* Loading skeletons */
   .skel {
     background: linear-gradient(90deg, #191d2e 25%, #232841 50%, #191d2e 75%);
@@ -207,16 +235,32 @@
         <p style="font-size:0.8rem; color:#8a91a5; line-height:1.6; margin: 0 0 14px;">
           How this app got access to your checklist, every step, live:</p>
         <div class="flow-buttons">
-          <button class="btn small" id="runStep">▶ Run manually (see every token)</button>
-          <button class="btn small secondary" id="runAuto">⚡ Run auto (SDK discovers the auth server)</button>
+          <button class="btn small" id="runAuto">⚡ Run auto (SDK discovers the auth server)</button>
+          <button class="btn small secondary" id="runStep">▶ Run manually (see every token)</button>
         </div>
         <div id="steps"></div>
-        <div class="adminnote">
-          <b>No consent screens.</b> Your apps were connected by your IT admin, so
-          everything worked the moment you signed in.
+
+        <div id="tokenSection" style="display:none; margin-top:14px;">
+          <div class="token-info-card" id="tokenCard">
+            <div class="token-card-head">
+              <div class="token-info-label">Access Token</div>
+              <div class="token-caret">▾</div>
+            </div>
+            <div class="token-info-value" id="accessTokenValue"></div>
+            <div class="token-full-wrap">
+              <pre class="box token" id="accessTokenFull"></pre>
+            </div>
+          </div>
+          <div class="token-info-card">
+            <div class="token-info-label">Token Claims (Proof from XAA.dev)</div>
+            <table class="claims-table" id="claimsTable"></table>
+          </div>
         </div>
-        <h3>Environment</h3>
-        <pre class="box" id="envBox"></pre>
+
+        <div class="token-info-card" style="margin-top:14px;">
+          <div class="token-info-label">Environment</div>
+          <pre class="box" id="envBox" style="border:none; padding:0; background:transparent; margin:0;"></pre>
+        </div>
       </div>
     </div>
 
@@ -227,7 +271,7 @@
 const STEPS = [
   { id: 'login', name: '1 · Company SSO', rfc: 'OpenID Connect + PKCE @ idp.xaa.dev' },
   { id: 'jag',   name: '2 · IdP issues delegation grant (ID-JAG)', rfc: 'RFC 8693 @ idp.xaa.dev/token' },
-  { id: 'token', name: '3 · Task system grants access', rfc: 'RFC 7523 @ auth.resource.xaa.dev/token' },
+  { id: 'token', name: '3 · Auth server issues Bearer token', rfc: 'RFC 7523 @ auth.resource.xaa.dev/token' },
   { id: 'mcp',   name: '4 · Checklist fetched (MCP)', rfc: 'StreamableHTTP @ mcp.xaa.dev/mcp' },
 ];
 const stepEls = {};
@@ -291,7 +335,7 @@ function chipFor(priority) {
 
 function renderTodos(result) {
   const wrap = document.getElementById('todos');
-  document.getElementById('taskSrc').textContent = result.resourceUri ? '· live from ' + result.resourceUri : '';
+  document.getElementById('taskSrc').textContent = '';
   if (!result.todos || result.todos.length === 0) {
     wrap.innerHTML = '<div class="empty">No onboarding steps assigned yet.</div>' +
       (result.rawText ? jsonBox(result.rawText) : '');
@@ -336,9 +380,32 @@ function renderProgress(result) {
   if (total) glance.push(`You're ${rate}% through your Day-1 setup: ${done} of ${total} steps done.`);
   if (required > 0) glance.push(`${required} required step${required > 1 ? 's' : ''} still open, those come first.`);
   if (next) glance.push(`Suggested next step: “${next.title}”.`);
-  glance.push('This checklist was fetched live from the company task system using your enterprise identity. You never approved a single connection.');
+  glance.push('This checklist was fetched live from the company task system using your enterprise identity.');
   document.getElementById('glanceWrap').style.display = '';
   document.getElementById('glance').innerHTML = glance.map(g => `<li>${esc(g)}</li>`).join('');
+}
+
+// ── Access token display ────────────────────────────────────────────────────
+
+function showTokenSection(data) {
+  if (!data || !data.token) return;
+  const { raw, payload } = data.token;
+  if (raw) {
+    document.getElementById('accessTokenValue').textContent = raw.slice(0, 40) + '…';
+    document.getElementById('accessTokenFull').textContent = raw;
+    const card = document.getElementById('tokenCard');
+    card.querySelector('.token-card-head').onclick = () => card.classList.toggle('open');
+  }
+  if (payload) {
+    const rows = ['iss', 'aud', 'sub', 'scope']
+      .filter(k => payload[k] != null)
+      .map(k => {
+        const val = Array.isArray(payload[k]) ? payload[k].join(', ') : String(payload[k]);
+        return `<tr><td>${esc(k)}</td><td>${esc(val)}</td></tr>`;
+      }).join('');
+    document.getElementById('claimsTable').innerHTML = rows;
+  }
+  document.getElementById('tokenSection').style.display = '';
 }
 
 // ── Flow runner (SSE) ───────────────────────────────────────────────────────
@@ -364,6 +431,8 @@ function runFlow(mode) {
   document.getElementById('runAuto').disabled = true;
   showLoading();
   for (const id of ['jag', 'token', 'mcp']) setStep(id, null, null, '');
+  document.getElementById('tokenSection').style.display = 'none';
+  document.getElementById('tokenCard').classList.remove('open');
 
   const es = new EventSource('/api/flow?mode=' + mode);
   es.onmessage = e => {
@@ -376,6 +445,7 @@ function runFlow(mode) {
           ? '<h3>Resources</h3>' + jsonBox(ev.data.resources) + (ev.data.rawText ? '<h3>Resource content</h3>' + jsonBox(ev.data.rawText) : '')
           : tokenDetail(ev.data || {});
         setStep(ev.step, 'done', ev.ms, html);
+        if (ev.step === 'token') showTokenSection(ev.data);
         if (ev.step === 'mcp') { renderTodos(ev.data); renderProgress(ev.data); }
       } else {
         setStep(ev.step, 'error', ev.ms, jsonBox(ev.error, 'err'));
@@ -403,7 +473,7 @@ async function init() {
   renderSteps();
   const s = await (await fetch('/api/session')).json();
   document.getElementById('envBox').textContent =
-    `IdP:         ${s.config.idpBaseUrl}\nAuth server: ${s.config.authServerUrl}\nTask system: ${s.config.mcpServerUrl}\nScope:       ${s.config.scope}\nRedirect:    ${s.config.redirectUri}`;
+    `IdP:         ${s.config.idpBaseUrl}\nAuth server: ${s.config.authServerUrl}\nTask system: ${s.config.mcpServerUrl}\nRedirect:    ${s.config.redirectUri}`;
 
   if (!s.loggedIn) {
     document.getElementById('loginView').style.display = 'flex';
@@ -423,7 +493,7 @@ async function init() {
   document.getElementById('runStep').addEventListener('click', () => runFlow('step'));
   document.getElementById('runAuto').addEventListener('click', () => runFlow('auto'));
 
-  runFlow('step'); // fetch the checklist automatically after sign-in
+  runFlow('auto'); // fetch the checklist automatically after sign-in
 }
 init();
 </script>

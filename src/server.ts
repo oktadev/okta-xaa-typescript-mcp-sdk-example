@@ -207,7 +207,7 @@ app.get('/api/session', (req, res) => {
 // ── Steps 2–4 streamed over SSE ──────────────────────────────────────────────
 
 type SseEvent =
-  | { type: 'step'; step: string; status: 'start' | 'done' | 'error'; ms?: number; data?: unknown; error?: string }
+  | { type: 'step'; step: string; status: 'start' | 'done' | 'error'; ms?: number; msLabel?: string; data?: unknown; error?: string }
   | { type: 'flow'; status: 'done' | 'error'; error?: string };
 
 app.get('/api/flow', async (req, res) => {
@@ -289,11 +289,12 @@ app.get('/api/flow', async (req, res) => {
       // Auto mode — CrossAppAccessProvider orchestrates discovery + steps 2–4
       const t0 = Date.now();
       let jagAt = t0;
+      let mcpAt = t0;
       emit({
         type: 'step', step: 'jag', status: 'start',
         data: { note: 'CrossAppAccessProvider connecting — RFC 9728 discovery, then assertion callback' },
       });
-      const { accessToken, result } = await runAutoFlow(idToken, {
+      const { result } = await runAutoFlow(idToken, {
         onAssertion: ctx => {
           emit({ type: 'step', step: 'jag', status: 'start', data: { discovered: ctx } });
         },
@@ -302,13 +303,17 @@ app.get('/api/flow', async (req, res) => {
           emit({ type: 'step', step: 'jag', status: 'done', ms: jagAt - t0, data: { token: describeToken(jag) } });
           emit({ type: 'step', step: 'token', status: 'start', data: { note: 'provider exchanging ID-JAG (RFC 7523)' } });
         },
+        onMcpFetchStart: accessToken => {
+          mcpAt = Date.now();
+          emit({
+            type: 'step', step: 'token', status: 'done', ms: mcpAt - jagAt,
+            data: { token: accessToken ? describeToken(accessToken) : null },
+          });
+          emit({ type: 'step', step: 'mcp', status: 'start', data: { request: { mcpServerUrl: MCP_SERVER_URL } } });
+        },
       }, idpTokenEndpoint);
       const tEnd = Date.now();
-      emit({
-        type: 'step', step: 'token', status: 'done', ms: tEnd - jagAt,
-        data: { token: accessToken ? describeToken(accessToken) : null, note: 'from provider.tokens()' },
-      });
-      emit({ type: 'step', step: 'mcp', status: 'done', ms: tEnd - t0, data: result });
+      emit({ type: 'step', step: 'mcp', status: 'done', ms: tEnd - mcpAt, data: result });
     }
     emit({ type: 'flow', status: 'done' });
   } catch (err) {

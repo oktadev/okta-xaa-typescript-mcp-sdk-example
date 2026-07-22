@@ -203,6 +203,7 @@ export async function fetchTodosWithBearer(accessToken: string): Promise<McpFetc
 export interface AutoFlowEvents {
   onAssertion?: (ctx: { authorizationServerUrl: string; resourceUrl: string; scope?: string }) => void;
   onJag?: (jag: string) => void;
+  onMcpFetchStart?: (accessToken: string | undefined) => void;
 }
 
 export async function runAutoFlow(
@@ -266,6 +267,7 @@ export async function runAutoFlow(
   const client = new Client({ name: 'xaa-requesting-app-typescript', version: '1.0.0' });
   await client.connect(transport);
   try {
+    events.onMcpFetchStart?.(provider.tokens()?.access_token);
     const result = await fetchTodosWithClient(client);
     return { accessToken: provider.tokens()?.access_token, result };
   } finally {
