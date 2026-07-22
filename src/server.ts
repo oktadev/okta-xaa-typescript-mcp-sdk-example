@@ -207,7 +207,7 @@ app.get('/api/session', (req, res) => {
 // ── Steps 2–4 streamed over SSE ──────────────────────────────────────────────
 
 type SseEvent =
-  | { type: 'step'; step: string; status: 'start' | 'done' | 'error'; ms?: number; msLabel?: string; data?: unknown; error?: string }
+  | { type: 'step'; step: string; status: 'start' | 'done' | 'error'; ms?: number; data?: unknown; error?: string }
   | { type: 'flow'; status: 'done' | 'error'; error?: string };
 
 app.get('/api/flow', async (req, res) => {
