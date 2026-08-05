@@ -51,6 +51,10 @@ interface Session {
 
 const sessions = new Map<string, Session>();
 
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
 function getSession(req: express.Request, res: express.Response): Session {
   let sid = req.cookies?.sid as string | undefined;
   if (!sid || !sessions.has(sid)) {
@@ -131,7 +135,7 @@ app.get('/callback', async (req, res) => {
   const { code, state, error, error_description } = req.query as Record<string, string>;
 
   if (error) {
-    res.status(400).send(`IdP error: ${error} — ${error_description ?? ''}`);
+    res.status(400).send(`IdP error: ${escapeHtml(error)} — ${escapeHtml(error_description ?? '')}`);
     return;
   }
   if (!code || state !== session.state) {
@@ -171,7 +175,7 @@ app.get('/callback', async (req, res) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[callback] ❌', msg);
-    res.status(500).send(`Login failed: ${msg} <br/><a href="/login">Try again</a>`);
+    res.status(500).send(`Login failed: ${escapeHtml(msg)} <br/><a href="/login">Try again</a>`);
   }
 });
 
