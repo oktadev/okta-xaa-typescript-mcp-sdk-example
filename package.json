@@ -1,7 +1,7 @@
 {
   "name": "xaa-requesting-app-typescript",
   "version": "1.0.0",
-  "description": "Employee Onboarding \u2014 XAA (SEP-990) requesting app on xaa.dev using the MCP TypeScript SDK",
+  "description": "Employee Onboarding — XAA (SEP-990) requesting app on xaa.dev using the MCP TypeScript SDK",
   "type": "module",
   "scripts": {
     "start": "tsx src/server.ts",
@@ -13,11 +13,13 @@
     "@modelcontextprotocol/client": "2.0.0-alpha.2",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.5",
+    "escape-html": "^1.0.3",
     "express": "^4.21.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.8",
+    "@types/escape-html": "^1.0.4",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",

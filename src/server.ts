@@ -8,6 +8,7 @@
  */
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import escapeHtml from 'escape-html';
 import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -50,10 +51,6 @@ interface Session {
 }
 
 const sessions = new Map<string, Session>();
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-}
 
 function getSession(req: express.Request, res: express.Response): Session {
   let sid = req.cookies?.sid as string | undefined;
