@@ -28,9 +28,6 @@ import {
 import {
   describeToken,
   decodeJwtPart,
-  requestIdJag,
-  exchangeJagForAccessToken,
-  fetchTodosWithBearer,
   runAutoFlow,
 } from './xaa.js';
 
@@ -218,7 +215,6 @@ app.get('/api/flow', async (req, res) => {
     return;
   }
   const idToken = session.idToken;
-  const mode = req.query.mode === 'auto' ? 'auto' : 'step';
   // Cached at login; lets step 2 hit the IdP token endpoint directly instead
   // of re-discovering the metadata on every run.
   const idpTokenEndpoint = await getIdpMetadata().then(m => m.token_endpoint).catch(() => undefined);
@@ -248,74 +244,34 @@ app.get('/api/flow', async (req, res) => {
   };
 
   try {
-    if (mode === 'step') {
-      // Step 2 — RFC 8693: id_token → ID-JAG via SDK discoverAndRequestJwtAuthGrant()
-      let t0 = Date.now();
-      const jag = await timed(
-        'jag',
-        { request: { idpUrl: IDP_BASE_URL, audience: AUTH_SERVER_URL, resource: MCP_SERVER_URL, scope: XAA_SCOPE } },
-        () => requestIdJag(idToken, idpTokenEndpoint),
-      );
-      emit({
-        type: 'step', step: 'jag', status: 'done', ms: Date.now() - t0,
-        data: { token: describeToken(jag.jwtAuthGrant), expiresIn: jag.expiresIn, scope: jag.scope },
-      });
-
-      // Step 3 — RFC 7523: ID-JAG → access token via a direct token request (adds scope + client_secret_post)
-      t0 = Date.now();
-      const tokens = await timed(
-        'token',
-        { request: { tokenEndpoint: `${AUTH_SERVER_URL}/token`, grantType: 'urn:ietf:params:oauth:grant-type:jwt-bearer' } },
-        () => exchangeJagForAccessToken(jag.jwtAuthGrant),
-      );
-      emit({
-        type: 'step', step: 'token', status: 'done', ms: Date.now() - t0,
-        data: {
-          token: describeToken(tokens.access_token),
-          tokenType: tokens.token_type,
-          expiresIn: tokens.expires_in,
-          scope: tokens.scope,
-        },
-      });
-
-      // Step 4 — MCP: list + read todo resources with the Bearer token
-      t0 = Date.now();
-      const result = await timed(
-        'mcp',
-        { request: { mcpServerUrl: MCP_SERVER_URL, method: 'resources/list → resources/read' } },
-        () => fetchTodosWithBearer(tokens.access_token),
-      );
-      emit({ type: 'step', step: 'mcp', status: 'done', ms: Date.now() - t0, data: result });
-    } else {
-      // Auto mode — CrossAppAccessProvider orchestrates discovery + steps 2–4
-      const t0 = Date.now();
-      let jagAt = t0;
-      let mcpAt = t0;
-      emit({
-        type: 'step', step: 'jag', status: 'start',
-        data: { note: 'CrossAppAccessProvider connecting — RFC 9728 discovery, then assertion callback' },
-      });
-      const { result } = await runAutoFlow(idToken, {
-        onAssertion: ctx => {
-          emit({ type: 'step', step: 'jag', status: 'start', data: { discovered: ctx } });
-        },
-        onJag: jag => {
-          jagAt = Date.now();
-          emit({ type: 'step', step: 'jag', status: 'done', ms: jagAt - t0, data: { token: describeToken(jag) } });
-          emit({ type: 'step', step: 'token', status: 'start', data: { note: 'provider exchanging ID-JAG (RFC 7523)' } });
-        },
-        onMcpFetchStart: accessToken => {
-          mcpAt = Date.now();
-          emit({
-            type: 'step', step: 'token', status: 'done', ms: mcpAt - jagAt,
-            data: { token: accessToken ? describeToken(accessToken) : null },
-          });
-          emit({ type: 'step', step: 'mcp', status: 'start', data: { request: { mcpServerUrl: MCP_SERVER_URL } } });
-        },
-      }, idpTokenEndpoint);
-      const tEnd = Date.now();
-      emit({ type: 'step', step: 'mcp', status: 'done', ms: tEnd - mcpAt, data: result });
-    }
+    // Auto mode — CrossAppAccessProvider orchestrates discovery + steps 2–4
+    const t0 = Date.now();
+    let jagAt = t0;
+    let mcpAt = t0;
+    emit({
+      type: 'step', step: 'jag', status: 'start',
+      data: { note: 'CrossAppAccessProvider connecting — RFC 9728 discovery, then assertion callback' },
+    });
+    const { result } = await runAutoFlow(idToken, {
+      onAssertion: ctx => {
+        emit({ type: 'step', step: 'jag', status: 'start', data: { discovered: ctx } });
+      },
+      onJag: jag => {
+        jagAt = Date.now();
+        emit({ type: 'step', step: 'jag', status: 'done', ms: jagAt - t0, data: { token: describeToken(jag) } });
+        emit({ type: 'step', step: 'token', status: 'start', data: { note: 'provider exchanging ID-JAG (RFC 7523)' } });
+      },
+      onMcpFetchStart: accessToken => {
+        mcpAt = Date.now();
+        emit({
+          type: 'step', step: 'token', status: 'done', ms: mcpAt - jagAt,
+          data: { token: accessToken ? describeToken(accessToken) : null },
+        });
+        emit({ type: 'step', step: 'mcp', status: 'start', data: { request: { mcpServerUrl: MCP_SERVER_URL } } });
+      },
+    }, idpTokenEndpoint);
+    const tEnd = Date.now();
+    emit({ type: 'step', step: 'mcp', status: 'done', ms: tEnd - mcpAt, data: result });
     emit({ type: 'flow', status: 'done' });
   } catch (err) {
     emit({ type: 'flow', status: 'error', error: err instanceof Error ? err.message : String(err) });

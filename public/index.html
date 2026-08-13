@@ -236,7 +236,6 @@
           How this app got access to your checklist, every step, live:</p>
         <div class="flow-buttons">
           <button class="btn small" id="runAuto">⚡ Run auto (SDK discovers the auth server)</button>
-          <button class="btn small secondary" id="runStep">▶ Run manually (see every token)</button>
         </div>
         <div id="steps"></div>
 
@@ -427,7 +426,6 @@ let running = false;
 function runFlow(mode) {
   if (running) return;
   running = true;
-  document.getElementById('runStep').disabled = true;
   document.getElementById('runAuto').disabled = true;
   showLoading();
   for (const id of ['jag', 'token', 'mcp']) setStep(id, null, null, '');
@@ -455,14 +453,12 @@ function runFlow(mode) {
       if (ev.status === 'error' && ev.error) console.error('flow error:', ev.error);
       es.close();
       running = false;
-      document.getElementById('runStep').disabled = false;
       document.getElementById('runAuto').disabled = false;
     }
   };
   es.onerror = () => {
     es.close();
     running = false;
-    document.getElementById('runStep').disabled = false;
     document.getElementById('runAuto').disabled = false;
   };
 }
@@ -490,7 +486,6 @@ async function init() {
   setStep('login', 'done', null,
     '<h3>ID token claims</h3>' + jsonBox(s.idToken.payload) + '<h3>Raw id_token</h3>' + jsonBox(s.idToken.raw, 'token'));
 
-  document.getElementById('runStep').addEventListener('click', () => runFlow('step'));
   document.getElementById('runAuto').addEventListener('click', () => runFlow('auto'));
 
   runFlow('auto'); // fetch the checklist automatically after sign-in

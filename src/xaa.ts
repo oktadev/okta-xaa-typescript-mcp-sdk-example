@@ -16,7 +16,6 @@ import {
   StreamableHTTPClientTransport,
   discoverAndRequestJwtAuthGrant,
   requestJwtAuthorizationGrant,
-  type JwtAuthGrantResult,
 } from '@modelcontextprotocol/client';
 import {
   AUTH_SERVER_URL,
@@ -48,61 +47,6 @@ export function describeToken(raw: string): { raw: string; header?: unknown; pay
   return { raw };
 }
 
-// ── Step 2: id_token → ID-JAG (RFC 8693 at idp.xaa.dev) ─────────────────────
-
-/**
- * When the IdP's token endpoint is already known (the server caches the IdP
- * metadata at login), skip the SDK's per-call metadata discovery and hit the
- * token endpoint directly — saves 1–2 extra round trips per run. Only static
- * configuration is cached; the tokens themselves are always requested live.
- */
-export async function requestIdJag(idToken: string, tokenEndpoint?: string): Promise<JwtAuthGrantResult> {
-  const common = {
-    audience: AUTH_SERVER_URL, // exact string — no trailing slash (xaa.dev matches exactly)
-    resource: MCP_SERVER_URL,
-    idToken,
-    clientId: EXCHANGE_CLIENT_ID,
-    clientSecret: EXCHANGE_CLIENT_SECRET,
-    scope: XAA_SCOPE,
-  };
-  if (tokenEndpoint) {
-    return requestJwtAuthorizationGrant({ ...common, tokenEndpoint });
-  }
-  return discoverAndRequestJwtAuthGrant({ ...common, idpUrl: IDP_BASE_URL });
-}
-
-// ── Step 3: ID-JAG → access token (RFC 7523 at auth.resource.xaa.dev) ───────
-
-export async function exchangeJagForAccessToken(jwtAuthGrant: string) {
-  // The SDK's exchangeJwtAuthGrant() never sends a `scope` param, but xaa.dev's
-  // playground requires one on this call (its Integration Reference shows
-  // scope=todos.read mcp.access on Step 3) — without it, the auth server issues
-  // an access token with an empty scope, which the MCP server then rejects.
-  // So this step is done as a raw request instead of via the SDK helper.
-  const params = new URLSearchParams({
-    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-    assertion: jwtAuthGrant,
-    scope: XAA_SCOPE,
-    // xaa.dev developer-registered clients require client_secret_post
-    // (credentials in the body); the SDK default is client_secret_basic.
-    client_id: MCP_CLIENT_ID, // resource-scoped credentials (client_xxx-at-todo0-mcp)
-    client_secret: MCP_CLIENT_SECRET,
-  });
-  const res = await fetch(`${AUTH_SERVER_URL}/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
-  });
-  if (!res.ok) {
-    throw new Error(`JWT grant exchange failed: HTTP ${res.status}: ${await res.text()}`);
-  }
-  return (await res.json()) as {
-    access_token: string;
-    token_type: string;
-    expires_in?: number;
-    scope?: string;
-  };
-}
 
 // ── Step 4: call the protected MCP server with the Bearer token ──────────────
 
@@ -182,20 +126,6 @@ async function fetchTodosWithClient(client: Client): Promise<McpFetchResult> {
     rawText,
     todos: rawText ? normalizeTodos(rawText) : [],
   };
-}
-
-/** Step-by-step mode: use the access token from Step 3 directly (like the C# app's AdditionalHeaders). */
-export async function fetchTodosWithBearer(accessToken: string): Promise<McpFetchResult> {
-  const transport = new StreamableHTTPClientTransport(new URL(MCP_SERVER_URL), {
-    requestInit: { headers: { Authorization: `Bearer ${accessToken}` } },
-  });
-  const client = new Client({ name: 'xaa-requesting-app-typescript', version: '1.0.0' });
-  await client.connect(transport);
-  try {
-    return await fetchTodosWithClient(client);
-  } finally {
-    await client.close().catch(() => {});
-  }
 }
 
 // ── Auto mode: CrossAppAccessProvider drives steps 2–4 ──────────────────────
