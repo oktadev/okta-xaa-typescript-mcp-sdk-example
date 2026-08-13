@@ -230,7 +230,7 @@ app.get('/api/flow', async (req, res) => {
   };
 
   try {
-    // Auto mode — CrossAppAccessProvider orchestrates discovery + steps 2–4
+    // CrossAppAccessProvider orchestrates discovery + steps 2–4
     const t0 = Date.now();
     let jagAt = t0;
     let mcpAt = t0;

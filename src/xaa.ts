@@ -2,10 +2,10 @@
  * XAA flow service — all Cross-App Access steps, built on the MCP TypeScript SDK.
  *
  *  Step 2  RFC 8693 Token Exchange   id_token → ID-JAG        discoverAndRequestJwtAuthGrant()
- *  Step 3  RFC 7523 JWT Bearer Grant ID-JAG   → access token  direct token request (scope + client_secret_post)
+ *  Step 3  RFC 7523 JWT Bearer Grant ID-JAG   → access token  CrossAppAccessProvider token request (scope + client_secret_post)
  *  Step 4  MCP resource fetch        Bearer   → todos         Client + StreamableHTTPClientTransport
  *
- * Auto mode runs steps 2–4 in one shot via CrossAppAccessProvider, the SDK's
+ * Steps 2–4 run in one shot via CrossAppAccessProvider, the SDK's
  * OAuthClientProvider for SEP-990: the transport hits the MCP server, gets a 401,
  * discovers the auth server via RFC 9728, invokes our assertion callback for a
  * fresh ID-JAG, exchanges it, and retries — all automatically.
@@ -47,8 +47,7 @@ export function describeToken(raw: string): { raw: string; header?: unknown; pay
   return { raw };
 }
 
-
-// ── Step 4: call the protected MCP server with the Bearer token ──────────────
+// ── Step 4: MCP resource fetch ──────────────────────────────────────────────
 
 export interface Todo {
   id?: string | number;
@@ -128,7 +127,7 @@ async function fetchTodosWithClient(client: Client): Promise<McpFetchResult> {
   };
 }
 
-// ── Auto mode: CrossAppAccessProvider drives steps 2–4 ──────────────────────
+// ── CrossAppAccessProvider drives steps 2–4 ─────────────────────────────────
 
 export interface AutoFlowEvents {
   onAssertion?: (ctx: { authorizationServerUrl: string; resourceUrl: string; scope?: string }) => void;

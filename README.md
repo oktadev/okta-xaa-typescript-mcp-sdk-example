@@ -1,8 +1,7 @@
 # Employee Onboarding
 
 A **Cross App Access (XAA / SEP-990)** demo built with the
-[MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
-([PR #1593](https://github.com/modelcontextprotocol/typescript-sdk/pull/1593)), registered as an
+[MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk), registered as an
 **MCP Requesting App on [xaa.dev](https://xaa.dev)**.
 
 ## The scenario
@@ -28,16 +27,16 @@ All checklist data is fetched at request time from xaa.dev's protected MCP serve
 | Step                         | Protocol              | Endpoint                      | SDK API                                    |
 | ---------------------------- | --------------------- | ----------------------------- | ------------------------------------------ |
 | 1. Company SSO               | OIDC auth code + PKCE | `idp.xaa.dev/authorize`       | (plain OIDC)                               |
-| 2. ID token → **ID-JAG**     | RFC 8693              | `idp.xaa.dev/token`           | `discoverAndRequestJwtAuthGrant()`         |
-| 3. ID-JAG → **access token** | RFC 7523              | `auth.resource.xaa.dev/token` | provider / token request                   |
+| 2. ID token → **ID-JAG**     | RFC 8693              | `idp.xaa.dev/token`           | `discoverAndRequestJwtAuthGrant()` / `requestJwtAuthorizationGrant()` |
+| 3. ID-JAG → **access token** | RFC 7523              | `auth.resource.xaa.dev/token` | `CrossAppAccessProvider` token request     |
 | 4. Fetch checklist           | MCP Streamable HTTP   | `mcp.xaa.dev/mcp`             | `Client` + `StreamableHTTPClientTransport` |
 
-Auto mode uses `CrossAppAccessProvider`: 401 → RFC 9728 discovery → assertion callback → RFC 7523
+The flow uses `CrossAppAccessProvider`: 401 → RFC 9728 discovery → assertion callback → RFC 7523
 exchange → retry, fully SDK-orchestrated.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 18.17 or later
+- [Node.js](https://nodejs.org/) 20 or later
 - A free [xaa.dev](https://xaa.dev) registration (email only, no account or password)
 
 ## Setup
@@ -93,7 +92,7 @@ npm start        # http://localhost:3001
    - The ID-JAG's `aud` is the authorization server and its `resource` is the MCP server URL
    - The access token's `scope` claim contains `todos.read mcp.access`
    - The access token's `aud` matches the ID-JAG's `resource`, byte for byte
-4. Click **Run auto (SDK discovers the auth server)** again to replay the flow and see fresh
+4. Click **↺ Re-run (SDK discovers the auth server)** to replay the flow and see fresh
    timings and tokens.
 
 ## Caveats
@@ -107,7 +106,7 @@ npm start        # http://localhost:3001
 
 ```
 src/config.ts        # env config (trailing-slash safe)
-src/xaa.ts           # XAA steps built on the SDK (JAG, bearer grant, MCP fetch, auto provider)
+src/xaa.ts           # XAA steps built on the SDK (ID-JAG request, MCP fetch, CrossAppAccessProvider orchestration)
 src/server.ts        # Express: OIDC login + SSE endpoint streaming steps 2–4 live
 public/index.html    # Employee onboarding UI (ring, up-next, checklist, behind-the-scenes)
 ```
