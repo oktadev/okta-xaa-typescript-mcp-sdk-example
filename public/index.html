@@ -423,7 +423,7 @@ function showLoading() {
 }
 
 let running = false;
-function runFlow(mode) {
+function runFlow() {
   if (running) return;
   running = true;
   document.getElementById('runAuto').disabled = true;
@@ -432,7 +432,7 @@ function runFlow(mode) {
   document.getElementById('tokenSection').style.display = 'none';
   document.getElementById('tokenCard').classList.remove('open');
 
-  const es = new EventSource('/api/flow?mode=' + mode);
+  const es = new EventSource('/api/flow');
   es.onmessage = e => {
     const ev = JSON.parse(e.data);
     if (ev.type === 'step') {
@@ -486,9 +486,9 @@ async function init() {
   setStep('login', 'done', null,
     '<h3>ID token claims</h3>' + jsonBox(s.idToken.payload) + '<h3>Raw id_token</h3>' + jsonBox(s.idToken.raw, 'token'));
 
-  document.getElementById('runAuto').addEventListener('click', () => runFlow('auto'));
+  document.getElementById('runAuto').addEventListener('click', () => runFlow());
 
-  runFlow('auto'); // fetch the checklist automatically after sign-in
+  runFlow(); // fetch the checklist automatically after sign-in
 }
 init();
 </script>

@@ -2,9 +2,8 @@
  * XAA Requesting App (TypeScript) — web server.
  *
  *  Step 1  OIDC login (auth code + PKCE) against https://idp.xaa.dev
- *  Steps 2–4 run server-side and stream live to the dashboard over SSE
- *  (GET /api/flow?mode=step for explicit per-step SDK calls,
- *   GET /api/flow?mode=auto for the CrossAppAccessProvider one-shot flow).
+ *  Steps 2–4 run server-side via CrossAppAccessProvider and stream live to
+ *  the dashboard over SSE (GET /api/flow).
  */
 import express from 'express';
 import cookieParser from 'cookie-parser';
@@ -228,19 +227,6 @@ app.get('/api/flow', async (req, res) => {
 
   const emit = (event: SseEvent) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
-  };
-
-  const timed = async <T>(step: string, startData: unknown, fn: () => Promise<T>): Promise<T> => {
-    emit({ type: 'step', step, status: 'start', data: startData });
-    const t0 = Date.now();
-    try {
-      const result = await fn();
-      return result;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      emit({ type: 'step', step, status: 'error', ms: Date.now() - t0, error: msg });
-      throw err;
-    }
   };
 
   try {
