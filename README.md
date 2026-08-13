@@ -18,8 +18,7 @@ The dashboard shows:
 - An **Up next** card suggesting the next step (required steps first)
 - The checklist itself, with priorities mapped to _Required / Recommended / Optional_
 - A **Behind the scenes** panel showing all four XAA steps live, with timings, decoded
-  ID-JAG and access-token claims, and two run buttons (run manually step-by-step, or
-  run automatically via `CrossAppAccessProvider`)
+  ID-JAG and access-token claims, and a button to re-run the flow via `CrossAppAccessProvider`
 
 All checklist data is fetched at request time from xaa.dev's protected MCP server
 (`todo0://todos`) with read-only scopes (`todos.read mcp.access`). Nothing is seeded or mocked.
@@ -86,15 +85,16 @@ npm start        # http://localhost:3001
 
 1. Open `http://localhost:3001` and select **Sign in with company SSO**. xaa.dev's IdP, IdenX, accepts any
    email address, so no real credentials are involved.
-2. After sign-in, the flow runs automatically: the four steps light up in order in the
-   **Behind the scenes** panel with real timings, and the checklist renders as soon as step 4
-   delivers the data.
+2. After sign-in, the flow runs automatically via `CrossAppAccessProvider`, which discovers the
+   authorization server through RFC 9728 resource metadata (no hardcoded authorization server URL):
+   the four steps light up in order in the **Behind the scenes** panel with real timings, and the
+   checklist renders as soon as step 4 delivers the data.
 3. Select any step card to expand its decoded token. Check three things while you are there:
    - The ID-JAG's `aud` is the authorization server and its `resource` is the MCP server URL
    - The access token's `scope` claim contains `todos.read mcp.access`
    - The access token's `aud` matches the ID-JAG's `resource`, byte for byte
-4. Try the **Run auto (SDK discovers the auth server)** button and watch `CrossAppAccessProvider`
-   produce the same result through discovery alone, with no hardcoded authorization server URL.
+4. Click **Run auto (SDK discovers the auth server)** again to replay the flow and see fresh
+   timings and tokens.
 
 ## Caveats
 
