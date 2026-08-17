@@ -92,7 +92,7 @@ npm start        # http://localhost:3001
    - The ID-JAG's `aud` is the authorization server and its `resource` is the MCP server URL
    - The access token's `scope` claim contains `todos.read mcp.access`
    - The access token's `aud` matches the ID-JAG's `resource`, byte for byte
-4. Click **↺ Re-run (SDK discovers the auth server)** to replay the flow and see fresh
+4. Click **🔄 Re-run (SDK discovers the auth server)** to replay the flow and see fresh
    timings and tokens.
 
 ## Caveats

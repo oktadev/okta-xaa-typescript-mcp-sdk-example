@@ -142,7 +142,6 @@ export async function runAutoFlow(
 ): Promise<{ accessToken: string | undefined; result: McpFetchResult }> {
   const provider = new CrossAppAccessProvider({
     assertion: async ctx => {
-      // The provider discovered the auth server + resource via RFC 9728.
       events.onAssertion?.({
         authorizationServerUrl: ctx.authorizationServerUrl,
         resourceUrl: ctx.resourceUrl,
@@ -157,7 +156,7 @@ export async function runAutoFlow(
         scope: ctx.scope ?? XAA_SCOPE,
         fetchFn: ctx.fetchFn,
       };
-      // Use the cached token endpoint when available (skips per-call discovery).
+      // Use cached endpoint to skip per-call IdP discovery.
       const jag = idpTokenEndpoint
         ? await requestJwtAuthorizationGrant({ ...jagOptions, tokenEndpoint: idpTokenEndpoint })
         : await discoverAndRequestJwtAuthGrant({ ...jagOptions, idpUrl: IDP_BASE_URL });
@@ -169,20 +168,14 @@ export async function runAutoFlow(
     clientName: 'xaa-requesting-app-typescript',
   });
 
-  // xaa.dev developer-registered clients require client_secret_post; the provider
-  // defaults to client_secret_basic. Declaring the method on the client info makes
-  // the SDK's selectClientAuthMethod() honor it during the token request.
+  // xaa.dev requires client_secret_post; override the SDK default (client_secret_basic).
   provider.saveClientInformation({
     client_id: MCP_CLIENT_ID,
     client_secret: MCP_CLIENT_SECRET,
     token_endpoint_auth_method: 'client_secret_post',
   } as Parameters<typeof provider.saveClientInformation>[0]);
 
-  // xaa.dev issues an empty-scope access token when the RFC 7523 request omits
-  // `scope` — and the todo backend then rejects it with "Invalid or expired
-  // token". The provider only adds scope when the MCP server's metadata
-  // advertises one (xaa.dev's doesn't), so inject our configured scope into
-  // the token request the provider builds.
+  // xaa.dev metadata omits scope, so the provider skips it and issues an empty-scope token that the todo backend rejects with "Invalid or expired token".
   const origPrepareTokenRequest = provider.prepareTokenRequest.bind(provider);
   provider.prepareTokenRequest = async (scope?: string) => {
     const params = await origPrepareTokenRequest(scope ?? XAA_SCOPE);

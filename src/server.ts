@@ -76,12 +76,7 @@ async function getIdpMetadata(): Promise<OidcMetadata> {
   return idpMetadata;
 }
 
-/**
- * Pre-establish TLS connections to the three xaa.dev hosts (a server-side
- * "preconnect") so the flow's requests reuse warm keep-alive connections
- * instead of each paying a fresh TLS handshake. Fire-and-forget; only static
- * metadata is touched — never user data.
- */
+// Pre-establish TLS connections to xaa.dev hosts so flow requests reuse warm sockets. Fire-and-forget; only static metadata is fetched, never user data.
 function warmConnections(): void {
   void Promise.allSettled([
     getIdpMetadata(),
@@ -230,7 +225,6 @@ app.get('/api/flow', async (req, res) => {
   };
 
   try {
-    // CrossAppAccessProvider orchestrates discovery + steps 2–4
     const t0 = Date.now();
     let jagAt = t0;
     let mcpAt = t0;
