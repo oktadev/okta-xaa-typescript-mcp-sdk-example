@@ -1,4 +1,4 @@
-# Employee Onboarding
+# Employee Onboarding - XAA Demo (TypeScript)
 
 A **Cross App Access (XAA / SEP-990)** demo built with the
 [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk), registered as an
@@ -60,7 +60,14 @@ Registration creates two separate OAuth clients, and mixing them up is the most 
 
 Why two? Step 3 crosses a trust boundary. The IdP and the resource's authorization server are separate trust domains, so your app holds a separate identity at each. Using the main client's credentials in step 3 fails with `invalid_client`.
 
-### 2. Configure the app
+### 2. Clone the repository
+
+```bash
+git clone https://github.com/oktadev/okta-xaa-typescript-mcp-sdk-example.git
+cd okta-xaa-typescript-mcp-sdk-example
+```
+
+### 3. Configure the app
 
 ```bash
 cp .env.example .env
@@ -70,7 +77,7 @@ Fill in `.env` with the credential pairs from the registration modal: app pair �
 token-exchange pair → `EXCHANGE_*` (only if your registration issued a separate pair; leave
 blank to fall back to the app pair); resource pair `client_xxx-at-todo0-mcp` → `MCP_*`.
 
-### 3. Run it
+### 4. Run the app
 
 ```bash
 npm install
@@ -80,7 +87,7 @@ npm start        # http://localhost:3001
 > Note: uses port 3001. Stop any other app using that port before starting this one, since
 > both share the registered redirect URI.
 
-### 4. Try it
+### 5. Explore the flow
 
 1. Open `http://localhost:3001` and select **Sign in with company SSO**. xaa.dev's IdP, IdenX, accepts any
    email address, so no real credentials are involved.
