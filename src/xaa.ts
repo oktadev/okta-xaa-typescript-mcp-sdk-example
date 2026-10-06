@@ -1,5 +1,5 @@
 /**
- * XAA flow service — all Cross-App Access steps, built on the MCP TypeScript SDK.
+ * XAA flow service — all Cross App Access steps, built on the MCP TypeScript SDK.
  *
  *  Step 2  RFC 8693 Token Exchange   id_token → ID-JAG        discoverAndRequestJwtAuthGrant()
  *  Step 3  RFC 7523 JWT Bearer Grant ID-JAG   → access token  CrossAppAccessProvider token request (scope + client_secret_post)
