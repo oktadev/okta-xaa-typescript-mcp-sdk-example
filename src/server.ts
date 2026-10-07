@@ -11,6 +11,7 @@ import escapeHtml from 'escape-html';
 import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import * as client from 'openid-client';
 import {
   PORT,
   BASE_URL,
@@ -26,7 +27,6 @@ import {
 } from './config.js';
 import {
   describeToken,
-  decodeJwtPart,
   runAutoFlow,
 } from './xaa.js';
 
@@ -60,26 +60,31 @@ function getSession(req: express.Request, res: express.Response): Session {
 
 // ── OIDC discovery (cached) ──────────────────────────────────────────────────
 
-interface OidcMetadata {
-  authorization_endpoint: string;
-  token_endpoint: string;
+// openid-client handles discovery, PKCE, and — importantly — ID token
+// signature and claim validation, which hand-rolled code usually skips.
+let idpConfig: client.Configuration | undefined;
+
+async function getIdpConfig(): Promise<client.Configuration> {
+  if (!idpConfig) {
+    idpConfig = await client.discovery(
+      new URL(IDP_BASE_URL),
+      XAA_CLIENT_ID,
+      XAA_CLIENT_SECRET,
+    );
+  }
+  return idpConfig;
 }
 
-let idpMetadata: OidcMetadata | undefined;
-
-async function getIdpMetadata(): Promise<OidcMetadata> {
-  if (!idpMetadata) {
-    const res = await fetch(`${IDP_BASE_URL}/.well-known/openid-configuration`);
-    if (!res.ok) throw new Error(`IdP discovery failed: HTTP ${res.status}`);
-    idpMetadata = (await res.json()) as OidcMetadata;
-  }
-  return idpMetadata;
+// The IdP token endpoint, reused in step 2 to skip a second discovery round trip.
+async function getIdpTokenEndpoint(): Promise<string | undefined> {
+  const config = await getIdpConfig();
+  return config.serverMetadata().token_endpoint;
 }
 
 // Pre-establish TLS connections to xaa.dev hosts so flow requests reuse warm sockets. Fire-and-forget; only static metadata is fetched, never user data.
 function warmConnections(): void {
   void Promise.allSettled([
-    getIdpMetadata(),
+    getIdpConfig(),
     fetch(`${AUTH_SERVER_URL}/.well-known/oauth-authorization-server`).then(r => r.arrayBuffer()),
     fetch(MCP_SERVER_URL, { method: 'HEAD' }).then(r => r.arrayBuffer()),
   ]);
@@ -95,66 +100,52 @@ app.get('/login', async (req, res) => {
   }
 
   const session = getSession(req, res);
-  const verifier = crypto.randomBytes(43).toString('base64url');
-  const challenge = crypto.createHash('sha256').update(verifier).digest().toString('base64url');
-  session.pkceVerifier = verifier;
-  session.state = crypto.randomBytes(16).toString('hex');
-  session.nonce = crypto.randomBytes(16).toString('hex');
+  const config = await getIdpConfig();
 
-  const meta = await getIdpMetadata();
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: XAA_CLIENT_ID,
+  const verifier = client.randomPKCECodeVerifier();
+  session.pkceVerifier = verifier;
+  session.state = client.randomState();
+  session.nonce = client.randomNonce();
+
+  const url = client.buildAuthorizationUrl(config, {
     redirect_uri: REDIRECT_URI,
     scope: OIDC_SCOPE,
     state: session.state,
     nonce: session.nonce,
-    code_challenge: challenge,
+    code_challenge: await client.calculatePKCECodeChallenge(verifier),
     code_challenge_method: 'S256',
   });
 
-  const url = `${meta.authorization_endpoint}?${params.toString()}`;
-  console.log(`[login] redirecting to ${url}`);
-  res.redirect(url);
+  console.log(`[login] redirecting to ${url.href}`);
+  res.redirect(url.href);
 });
 
 app.get('/callback', async (req, res) => {
   const session = getSession(req, res);
-  const { code, state, error, error_description } = req.query as Record<string, string>;
+  const { error, error_description } = req.query as Record<string, string>;
 
   if (error) {
     res.status(400).send(`IdP error: ${escapeHtml(error)} — ${escapeHtml(error_description ?? '')}`);
     return;
   }
-  if (!code || state !== session.state) {
-    res.status(400).send('Invalid callback: missing code or state mismatch. <a href="/login">Try again</a>');
-    return;
-  }
 
   try {
-    const meta = await getIdpMetadata();
-    const tokenRes = await fetch(meta.token_endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: REDIRECT_URI,
-        client_id: XAA_CLIENT_ID,
-        client_secret: XAA_CLIENT_SECRET,
-        code_verifier: session.pkceVerifier ?? '',
-      }),
-    });
-    if (!tokenRes.ok) {
-      throw new Error(`token endpoint returned HTTP ${tokenRes.status}: ${await tokenRes.text()}`);
-    }
-    const tokens = (await tokenRes.json()) as { id_token?: string };
-    if (!tokens.id_token) throw new Error('no id_token in token response');
+    const config = await getIdpConfig();
 
-    const claims = decodeJwtPart(tokens.id_token, 1);
-    if (session.nonce && claims.nonce !== session.nonce) {
-      throw new Error('nonce mismatch in id_token');
-    }
+    // Verifies the ID token signature against the IdP's published keys, plus
+    // the iss, aud, and exp claims, and checks state and nonce for us.
+    const tokens = await client.authorizationCodeGrant(
+      config,
+      new URL(req.originalUrl, BASE_URL),
+      {
+        pkceCodeVerifier: session.pkceVerifier,
+        expectedState: session.state,
+        expectedNonce: session.nonce,
+      },
+    );
+
+    if (!tokens.id_token) throw new Error('no id_token in token response');
+    const claims = (tokens.claims() ?? {}) as Record<string, unknown>;
 
     session.idToken = tokens.id_token;
     session.claims = claims;
@@ -211,7 +202,7 @@ app.get('/api/flow', async (req, res) => {
   const idToken = session.idToken;
   // Cached at login; lets step 2 hit the IdP token endpoint directly instead
   // of re-discovering the metadata on every run.
-  const idpTokenEndpoint = await getIdpMetadata().then(m => m.token_endpoint).catch(() => undefined);
+  const idpTokenEndpoint = await getIdpTokenEndpoint().catch(() => undefined);
 
   res.set({
     'Content-Type': 'text/event-stream',
