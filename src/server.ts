@@ -154,6 +154,22 @@ app.get('/callback', async (req, res) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[callback] ❌', msg);
+
+    // A stale callback is a client-side problem, not a server fault: a
+    // refreshed /callback page, a reused code, or a restart that cleared the
+    // in-memory session. openid-client reports all of these as
+    // OAUTH_INVALID_RESPONSE, whose message ("invalid response encountered")
+    // says nothing useful to the person looking at the page.
+    const code = (err as { code?: string }).code;
+    if (code === 'OAUTH_INVALID_RESPONSE' || err instanceof client.AuthorizationResponseError) {
+      res
+        .status(400)
+        .send(
+          'Sign-in could not be completed: the link was already used, or the session expired. <a href="/login">Try again</a>',
+        );
+      return;
+    }
+
     res.status(500).send(`Login failed: ${escapeHtml(msg)} <br/><a href="/login">Try again</a>`);
   }
 });
