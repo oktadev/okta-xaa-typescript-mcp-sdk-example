@@ -130,7 +130,7 @@ This example uses the following open standards and libraries:
 
 ## Help
 
-Please post any questions as comments on the [blog post](https://developer.okta.com/blog/TODO), or visit our [Okta Developer Forums](https://devforum.okta.com/).
+Please post any questions as comments on the [blog post](https://developer.okta.com/blog/2026/10/09/typescript-mcp-sdk-cross-app-access), or visit our [Okta Developer Forums](https://devforum.okta.com/).
 
 ## License
 
